@@ -29,6 +29,8 @@ Another benefit is that this protocol is much less gas and attention intensive o
 
 Some downsides are that this protocol requires a much more precise valuation of an NFT, as otherwise you might get a loan that's too small or not get any fills. Furthermore, the lender is not guaranteed to receive the full NFT.
 
+In summary, the protocol optimizes for the small guy (removes costly auctions that require multiple txs, amounts lent don't need to cover the whole loan and contract has heavy gas optimizations) and gives higher guarantees to lenders, at the cost of the downsides mentioned before.
+
 ## Future improvements
 One of the main problems of this protocol is that it requires a lot of work on the lender's side, they can't just park their funds the way you would on compound, instead they need to evaluate each deal and make a decision on it.
 
