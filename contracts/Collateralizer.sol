@@ -140,16 +140,19 @@ contract Collateralizer is ERC1155, IERC721Receiver {
     idToFractionalized[id].transfer(msg.sender, tokensLeft);
   }
 
-  // Sweep all the tokens left
-  function sweepFractionalTokens(uint id, uint amountInTokens) external {
+  function getPartialFractionalTokens(uint id, uint amountInTokens) public {
     _burn(msg.sender, lenderTokenId(id), amountInTokens);
     idToFractionalized[id].transfer(msg.sender, (amountInTokens * idToTokenPrice[id])/1e18);
+  }
+
+  // Sweep all the tokens left
+  function sweepFractionalTokens(uint id, uint amountInTokens) external {
+    getPartialFractionalTokens(id, amountInTokens);
     sweep(id);
   }
 
   // Get missing tokens in case everyone has already withdrawn
-  function sweepDust(address nftContract, uint nftId, uint endTime, uint borrowCeiling, uint interestPerEthPerDay) external {
-    uint id = getId(nftContract, nftId, endTime, borrowCeiling, interestPerEthPerDay);
+  function sweepDust(uint id) external {
     require(idToFractionalized[id].balanceOf(msg.sender) > 0, "no balance");
     sweep(id);
   }
