@@ -9,6 +9,15 @@ Lending protocol for NFTs with fixed expiry and fixed interest that places credi
 3. Owner can repay lent money + interest at any time to get back their NFT
 4. If owner hasn't repaid credit by expiry, the NFT is fractionalized using fractional.art and distributed among all the lenders. If the debt ceiling has not been reached, the owner will receive the missing portion in fractionalized tokens.
 
+## Lending pools
+These are a set of pools that act as guaranteed lenders as long as certain conditions are met, for example the PUNK pool will always lend money with cryptopunk offers as long as duration is lower than a week, interest is higher than 5% and debt ceiling is lower than 10k USD.
+
+The parameters for these pools will need to be continuosly kept up to date, it's unclear what the process will be for this, but initially these will be managed by a multisig along with someone that can create a risk model for it.
+
+If any loan defaults, the NFT will be auctioned through fractional.art. If the proceeds exceed the lent amount, the extra money will be sent to the treasury, which will store these as an insurance fund againt bad debt.
+
+All the pools will be isolated, but there will also be an omnipool that will feed into all of these smaller ones, thus taking all the risk.
+
 ## Sweeping tokens
 In order to be able to unwrap the NFT on fractional.art, the unwrapper needs to have all the ERC20 tokens for it. However, there are small precision errors on the calculations in our contract (these errors are <0.00000000000000001%), so it's likely that some tokens might end up getting stuck in the contract, thus making it impossible to do a full redemption. This is a problem, since it will mean that redeeming the NFT will be impossible and owners will be forced to do a public auction.
 

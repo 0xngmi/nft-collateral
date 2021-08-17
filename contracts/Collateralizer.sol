@@ -28,6 +28,12 @@ contract Collateralizer is ERC1155, IERC721Receiver {
   mapping(uint => uint) public idToBorrowedAmount;
   mapping(uint => IERC20) public idToFractionalized;
   mapping(uint => bool) public idHasBeenRepaid;
+  
+  struct MintableTokens {
+    uint amount;
+    address owner;
+  }
+  mapping(uint => MintableTokens) mintableTokens;
 
   constructor(address _erc1155Wrapper) ERC1155("https://api.llama.fi/nft-lend/v1/{id}.json"){
     erc1155Wrapper = _erc1155Wrapper;
@@ -82,8 +88,8 @@ contract Collateralizer is ERC1155, IERC721Receiver {
     uint newBorrowedAmount = applyInterest(id, interestPerEthPerDay) + msg.value;
     require(newBorrowedAmount < borrowCeiling, "max borrow");
     idToBorrowedAmount[id] = newBorrowedAmount;
-    require(balanceOf(currentOwner, id) == 1, "wrong owner");
     currentOwner.sendValue(msg.value);
+    require(balanceOf(currentOwner, id) == 1, "wrong owner");
     _mint(msg.sender, lenderTokenId(id), (msg.value*1e18)/idToTokenPrice[id], "");
   }
 
@@ -95,8 +101,8 @@ contract Collateralizer is ERC1155, IERC721Receiver {
   function recoverEth(uint id) external {
     require(idHasBeenRepaid[id] == true, "not repaid");
     (uint depositTokensOwned, uint ethWithInterest) = getUnderlyingBalance(id, msg.sender);
-    payable(msg.sender).sendValue(ethWithInterest);
     _burn(msg.sender, lenderTokenId(id), depositTokensOwned);
+    payable(msg.sender).sendValue(ethWithInterest);
   }
 
   function rug(address nftContract, uint nftId, uint endTime, uint borrowCeiling, uint interestPerEthPerDay, bool isERC721, address previousOwner, string memory _name, string memory _symbol) external {
@@ -110,7 +116,10 @@ contract Collateralizer is ERC1155, IERC721Receiver {
       unchecked {
         tokensForOwner = borrowCeiling-totalBorrowed;
       }
-      _mint(previousOwner, lenderTokenId(id), (tokensForOwner* 1e18)/idToTokenPrice[id], "");
+      mintableTokens[lenderTokenId(id)] = MintableTokens({
+        owner: previousOwner,
+        amount: (tokensForOwner* 1e18)/idToTokenPrice[id]
+      });
       totalBorrowed = borrowCeiling;
     }
 
@@ -125,7 +134,13 @@ contract Collateralizer is ERC1155, IERC721Receiver {
     idToFractionalized[id] = IERC20(fractionalFactory.vaults(vaultId));
   }
 
-  
+  function mintRuggedTokens(uint id) external {
+    MintableTokens memory tokens = mintableTokens[id];
+    delete mintableTokens[id];
+    _mint(tokens.owner, id, tokens.amount, ""); // If it doesn't exist this this will fail
+  }
+
+
 
   // Low-gas function for when you are sure that you are not the last person withdrawing
   function getFractionalTokens(uint id) external {
@@ -135,9 +150,16 @@ contract Collateralizer is ERC1155, IERC721Receiver {
   }
 
   function sweep(uint id) internal {
-    uint tokensLeft = idToFractionalized[id].balanceOf(address(this));
-    require(tokensLeft*10000<idToFractionalized[id].totalSupply(), ">0.01%");
-    idToFractionalized[id].transfer(msg.sender, tokensLeft);
+    IERC20 fractionalizedToken = idToFractionalized[id];
+    uint tokensLeft = fractionalizedToken.balanceOf(address(this));
+    require(tokensLeft*10000<fractionalizedToken.totalSupply(), ">0.01%");
+    fractionalizedToken.transfer(msg.sender, tokensLeft);
+  }
+
+  // Get missing tokens in case everyone has already withdrawn
+  function sweepDust(uint id) public {
+    require(idToFractionalized[id].balanceOf(msg.sender) > 0, "no balance");
+    sweep(id);
   }
 
   function getPartialFractionalTokens(uint id, uint amountInTokens) public {
@@ -148,27 +170,16 @@ contract Collateralizer is ERC1155, IERC721Receiver {
   // Sweep all the tokens left
   function sweepFractionalTokens(uint id, uint amountInTokens) external {
     getPartialFractionalTokens(id, amountInTokens);
-    sweep(id);
-  }
-
-  // Get missing tokens in case everyone has already withdrawn
-  function sweepDust(uint id) external {
-    require(idToFractionalized[id].balanceOf(msg.sender) > 0, "no balance");
-    sweep(id);
+    sweepDust(id);
   }
 
 
 
   function create(address owner, address nftContract, uint nftId, uint endTime, uint borrowCeiling, uint interestPerEthPerDay) internal {
     uint id = getId(nftContract, nftId, endTime, borrowCeiling, interestPerEthPerDay);
-    _mint(owner, id, 1, "");
     require(idToTokenPrice[id] == 0, "used");
     idToTokenPrice[id] = 1e18;
-  }
-
-  function createApproved(address nftContract, uint nftId, uint endTime, uint borrowCeiling, uint interestPerEthPerDay, bool isERC721) external {
-    moveNFT(nftContract, nftId, msg.sender, address(this), isERC721);
-    create(msg.sender, nftContract, nftId, endTime, borrowCeiling, interestPerEthPerDay);
+    _mint(owner, id, 1, "");
   }
 
   function onERC721Received(address _operator, address _from, uint256 _tokenId, bytes calldata _data) public override returns(bytes4) {
@@ -189,4 +200,5 @@ contract Collateralizer is ERC1155, IERC721Receiver {
 - events
 - wrapping
 - reentrancy
+- lending pools
 */

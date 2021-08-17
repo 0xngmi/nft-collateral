@@ -13,6 +13,16 @@ describe("Greeter", function () {
 
   it("transfer of 0 is ok")
 
+  it("can't call sweepFractionalTokens() with 0 amount")
+
+  it("if isERC721 is wrong then contract reverts")
+
+  it("mintRuggedTokens() works")
+
+  it("can't mintRuggedTokens() that don't exist")
+
+  it("can't mintRuggedTokens() twice")
+
   it("Should return the new greeting once it's changed", async function () {
     const Greeter = await ethers.getContractFactory("Greeter");
     const greeter = await Greeter.deploy("Hello, world!");
